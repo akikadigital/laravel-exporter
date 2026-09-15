@@ -6,12 +6,18 @@ use Akika\LaravelExporter\Enums\ExportFormat;
 use Akika\LaravelExporter\Enums\ExportStatus;
 use Akika\LaravelExporter\Jobs\ProcessExport;
 use Akika\LaravelExporter\Models\Export;
+use Akika\LaravelExporter\Models\ExportLock;
+use Akika\LaravelExporter\Support\ExportCreationResult;
+use Akika\LaravelExporter\Support\ExportFingerprint;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class PendingExport
 {
+    
     protected ?Model $owner = null;
 
     protected ?string $name = null;
@@ -73,6 +79,62 @@ class PendingExport
 
     public function queue(): Export
     {
+        $this->validateOptions();
+
+        $fingerprint =
+            $this->fingerprint();
+
+        $result = $fingerprint
+            ? $this->createUniqueExport(
+                $fingerprint
+            )
+            : new ExportCreationResult(
+                export: $this->createExport(),
+                created: true,
+            );
+
+        if ($result->created) {
+            $this->dispatch(
+                $result->export
+            );
+        }
+
+        return $result->export;
+    }
+
+    protected function dispatch(
+        Export $export
+    ): void {
+        $job = new ProcessExport(
+            $export->id
+        );
+
+        if (
+            $connection = config(
+                'exporter.queue.connection'
+            )
+        ) {
+            $job->onConnection(
+                $connection
+            );
+        }
+
+        if (
+            $queue = config(
+                'exporter.queue.name'
+            )
+        ) {
+            $job->onQueue(
+                $queue
+            );
+        }
+
+        dispatch($job);
+    }
+
+    protected function createExport(
+        ?string $fingerprint = null
+    ): Export {
         $name = $this->name
             ?? $this->defaultName();
 
@@ -83,43 +145,115 @@ class PendingExport
             uuid: $uuid,
         );
 
-        $export = Export::query()->create([
+        return Export::query()->create([
             'uuid' => $uuid,
 
-            'owner_type' => $this->owner?->getMorphClass(),
-            'owner_id' => $this->owner?->getKey(),
+            'owner_type' =>
+            $this->owner?->getMorphClass(),
 
-            'exporter' => $this->exporter,
+            'owner_id' =>
+            $this->owner?->getKey(),
+
+            'exporter' =>
+            $this->exporter,
+
             'name' => $name,
 
-            'format' => $this->format,
-            'status' => ExportStatus::PENDING,
+            'format' =>
+            $this->format,
 
-            'disk' => config('exporter.disk'),
-            'filename' => $filename,
+            'status' =>
+            ExportStatus::PENDING,
 
-            'options' => $this->options,
+            'disk' =>
+            config('exporter.disk'),
+
+            'filename' =>
+            $filename,
+
+            'options' =>
+            $this->options,
+
+            'fingerprint' =>
+            $fingerprint,
 
             'expires_at' => null,
         ]);
+    }
 
-        $job = new ProcessExport($export->id);
+    protected function createUniqueExport(
+        string $fingerprint
+    ): ExportCreationResult {
+        try {
+            return DB::transaction(
+                function () use (
+                    $fingerprint
+                ) {
+                    $lock = ExportLock::query()
+                        ->where(
+                            'fingerprint',
+                            $fingerprint
+                        )
+                        ->with('export')
+                        ->first();
 
-        if ($connection = config(
-            'exporter.queue.connection'
-        )) {
-            $job->onConnection($connection);
+                    if (
+                        $lock
+                        && $lock->export
+                    ) {
+                        return new ExportCreationResult(
+                            export: $lock->export,
+                            created: false,
+                        );
+                    }
+
+                    $export = $this->createExport(
+                        $fingerprint
+                    );
+
+                    ExportLock::query()->create([
+                        'fingerprint' =>
+                        $fingerprint,
+
+                        'export_id' =>
+                        $export->id,
+                    ]);
+
+                    return new ExportCreationResult(
+                        export: $export,
+                        created: true,
+                    );
+                }
+            );
+        } catch (QueryException $exception) {
+            $lock = ExportLock::query()
+                ->where(
+                    'fingerprint',
+                    $fingerprint
+                )
+                ->with('export')
+                ->first();
+
+            if (
+                $lock
+                && $lock->export
+            ) {
+                return new ExportCreationResult(
+                    export: $lock->export,
+                    created: false,
+                );
+            }
+
+            throw $exception;
         }
-
-        if ($queue = config(
-            'exporter.queue.name'
-        )) {
-            $job->onQueue($queue);
-        }
-
-        dispatch($job);
-
-        return $export;
+    }
+    
+    protected function createExportResult(): ExportCreationResult
+    {
+        return new ExportCreationResult(
+            export: $this->createExport(),
+            created: true,
+        );
     }
 
     protected function defaultName(): string
@@ -158,4 +292,19 @@ class PendingExport
             );
         }
     }
+
+    protected function fingerprint(): ?string
+    {
+        if (! $this->unique) {
+            return null;
+        }
+
+        return ExportFingerprint::generate(
+            exporter: $this->exporter,
+            owner: $this->owner,
+            format: $this->format,
+            options: $this->options,
+        );
+    }
+    
 }

@@ -42,6 +42,13 @@ class ExporterServiceProvider extends ServiceProvider
                     . date('Y_m_d_His')
                     . '_create_exports_table.php'
             ),
+
+            __DIR__ . '/../database/migrations/create_export_locks_table.php.stub'
+            => database_path(
+                'migrations/'
+                    . date('Y_m_d_His', time() + 1)
+                    . '_create_export_locks_table.php'
+            ),
         ], 'exporter-migrations');
 
         if ($this->app->runningInConsole()) {

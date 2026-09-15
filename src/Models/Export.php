@@ -8,7 +8,9 @@ use Akika\LaravelExporter\Events\ExportCancelled;
 use Akika\LaravelExporter\Events\ExportCompleted;
 use Akika\LaravelExporter\Events\ExportFailed;
 use Akika\LaravelExporter\Events\ExportStarted;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -37,6 +39,13 @@ class Export extends Model
     public function owner(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    public function lock(): HasOne
+    {
+        return $this->hasOne(
+            ExportLock::class
+        );
     }
 
     public function isPending(): bool
@@ -189,6 +198,8 @@ class Export extends Model
             'error_message' => null,
         ])->save();
 
+        $this->releaseUniqueLock();
+
         ExportCompleted::dispatch(
             $this->getKey()
         );
@@ -209,11 +220,16 @@ class Export extends Model
 
         $message = $exception?->getMessage();
 
+        $failedAt = now();
+
         $this->forceFill([
             'status' => ExportStatus::FAILED,
-            'failed_at' => now(),
+            'failed_at' => $failedAt,
+            'expires_at' => $this->expirationDate(),
             'error_message' => $message,
         ])->save();
+
+        $this->releaseUniqueLock();
 
         ExportFailed::dispatch(
             $this->getKey(),
@@ -229,15 +245,33 @@ class Export extends Model
             return false;
         }
 
+        $cancelledAt = now();
+
         $this->forceFill([
             'status' => ExportStatus::CANCELLED,
+            'expires_at' => $this->expirationDate(),
         ])->save();
+
+        $this->releaseUniqueLock();
 
         ExportCancelled::dispatch(
             $this->getKey()
         );
 
         return true;
+    }
+
+    protected function expirationDate()
+    {
+        return now()->addDays(
+            max(
+                1,
+                (int) config(
+                    'exporter.expires_after_days',
+                    7
+                )
+            )
+        );
     }
 
     public function updateProcessedRows(int $rows): static
@@ -292,5 +326,35 @@ class Export extends Model
         return $disk->delete(
             $this->path
         );
+    }
+
+    public function scopeActive(
+        Builder $query
+    ): Builder {
+        return $query->whereIn(
+            'status',
+            [
+                ExportStatus::PENDING->value,
+                ExportStatus::PROCESSING->value,
+            ]
+        );
+    }
+
+    public static function findActiveByFingerprint(
+        string $fingerprint
+    ): ?static {
+        return static::query()
+            ->active()
+            ->where(
+                'fingerprint',
+                $fingerprint
+            )
+            ->latest('id')
+            ->first();
+    }
+
+    public function releaseUniqueLock(): void
+    {
+        $this->lock()->delete();
     }
 }
