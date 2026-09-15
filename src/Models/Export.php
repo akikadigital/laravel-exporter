@@ -11,8 +11,8 @@ use Akika\LaravelExporter\Events\ExportStarted;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Throwable;
-
 
 class Export extends Model
 {
@@ -69,6 +69,59 @@ class Export extends Model
         return $this->status->isFinished();
     }
 
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null
+            && $this->expires_at->isPast();
+    }
+
+    public function isDownloadable(): bool
+    {
+        if (! $this->isCompleted()) {
+            return false;
+        }
+
+        if ($this->isExpired()) {
+            return false;
+        }
+
+        if (! $this->disk || ! $this->path) {
+            return false;
+        }
+
+        return Storage::disk($this->disk)
+            ->exists($this->path);
+    }
+
+    public function downloadUrl(
+        ?int $expiresAfterMinutes = null
+    ): ?string {
+        if (! $this->isDownloadable()) {
+            return null;
+        }
+
+        $expiresAfterMinutes ??= max(
+            1,
+            (int) config(
+                'exporter.downloads.url_expires_after',
+                15
+            )
+        );
+
+        return URL::temporarySignedRoute(
+            config(
+                'exporter.downloads.route',
+                'exports.download'
+            ),
+            now()->addMinutes(
+                $expiresAfterMinutes
+            ),
+            [
+                'export' => $this,
+            ]
+        );
+    }
+
     public function existsOnDisk(): bool
     {
         if (! $this->disk || ! $this->path) {
@@ -111,6 +164,16 @@ class Export extends Model
             return $this;
         }
 
+        $completedAt = now();
+
+        $expiresAfterDays = max(
+            1,
+            (int) config(
+                'exporter.expires_after_days',
+                7
+            )
+        );
+
         $this->forceFill([
             'status' => ExportStatus::COMPLETED,
             'path' => $path,
@@ -118,7 +181,10 @@ class Export extends Model
             $this->total_rows
                 ?? $this->processed_rows,
             'meta' => $meta,
-            'completed_at' => now(),
+            'completed_at' => $completedAt,
+            'expires_at' => $completedAt
+                ->copy()
+                ->addDays($expiresAfterDays),
             'failed_at' => null,
             'error_message' => null,
         ])->save();
@@ -201,6 +267,30 @@ class Export extends Model
             (int) floor(
                 ($this->processed_rows / $this->total_rows) * 100
             )
+        );
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+
+    public function deleteFile(): bool
+    {
+        if (! $this->disk || ! $this->path) {
+            return true;
+        }
+
+        $disk = Storage::disk(
+            $this->disk
+        );
+
+        if (! $disk->exists($this->path)) {
+            return true;
+        }
+
+        return $disk->delete(
+            $this->path
         );
     }
 }

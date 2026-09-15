@@ -2,6 +2,7 @@
 
 namespace Akika\LaravelExporter;
 
+use Akika\LaravelExporter\Console\Commands\PruneExportsCommand;
 use Akika\LaravelExporter\Services\ExportManager;
 use Illuminate\Support\ServiceProvider;
 
@@ -22,6 +23,11 @@ class ExporterServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Load the package routes
+        $this->loadRoutesFrom(
+            __DIR__ . '/../routes/web.php'
+        );
+
         // php artisan vendor:publish --tag=exporter-config
         $this->publishes([
             __DIR__ . '/../config/exporter.php'
@@ -37,5 +43,11 @@ class ExporterServiceProvider extends ServiceProvider
                     . '_create_exports_table.php'
             ),
         ], 'exporter-migrations');
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                PruneExportsCommand::class,
+            ]);
+        }
     }
 }

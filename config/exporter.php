@@ -88,4 +88,66 @@ return [
 
     ],
 
+    'downloads' => [
+
+        /*
+    |--------------------------------------------------------------------------
+    | Download Route
+    |--------------------------------------------------------------------------
+    */
+
+        'route' => 'exports.download',
+
+        /*
+    |--------------------------------------------------------------------------
+    | Signed URL Lifetime
+    |--------------------------------------------------------------------------
+    |
+    | Number of minutes a generated download URL remains valid.
+    |
+    */
+
+        'url_expires_after' => (int) env(
+            'EXPORTER_DOWNLOAD_URL_EXPIRES_AFTER',
+            15
+        ),
+
+    ],
+
+    'route' => [
+
+        'prefix' => 'exports',
+
+        'middleware' => [
+            'web',
+            'auth',
+        ],
+
+    ],
+
+    /*
+|--------------------------------------------------------------------------
+| Pruning
+|--------------------------------------------------------------------------
+*/
+
+    'prune' => [
+
+        /*
+    |--------------------------------------------------------------------------
+    | Delete Database Records
+    |--------------------------------------------------------------------------
+    |
+    | When true, expired export records are deleted after their files have
+    | been removed.
+    |
+    */
+
+        'delete_records' => env(
+            'EXPORTER_PRUNE_DELETE_RECORDS',
+            true
+        ),
+
+    ],
+
 ];

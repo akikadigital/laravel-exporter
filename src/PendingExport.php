@@ -100,9 +100,7 @@ class PendingExport
 
             'options' => $this->options,
 
-            'expires_at' => now()->addDays(
-                config('exporter.expires_after_days', 7)
-            ),
+            'expires_at' => null,
         ]);
 
         $job = new ProcessExport($export->id);
