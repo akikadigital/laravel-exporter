@@ -3,6 +3,7 @@
 namespace Akika\LaravelExporter\Jobs;
 
 use Akika\LaravelExporter\Contracts\Exportable;
+use Akika\LaravelExporter\Events\ExportProgressUpdated;
 use Akika\LaravelExporter\Models\Export;
 use Akika\LaravelExporter\Writers\CsvWriter;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -208,7 +209,16 @@ class ProcessExport implements ShouldQueue
             )
         );
 
+        $eventInterval = max(
+            1,
+            (int) config(
+                'exporter.progress.event_interval',
+                5
+            )
+        );
+
         $processed = 0;
+        $lastDispatchedProgress = 0;
 
         $query->chunkById(
             $chunkSize,
@@ -216,7 +226,9 @@ class ProcessExport implements ShouldQueue
                 $export,
                 $exporter,
                 $writer,
-                &$processed
+                $eventInterval,
+                &$processed,
+                &$lastDispatchedProgress
             ) {
                 $export->refresh();
 
@@ -225,9 +237,7 @@ class ProcessExport implements ShouldQueue
                 }
 
                 foreach ($rows as $row) {
-                    $mapped = $exporter->map(
-                        $row
-                    );
+                    $mapped = $exporter->map($row);
 
                     if (
                         method_exists(
@@ -251,8 +261,45 @@ class ProcessExport implements ShouldQueue
                     $processed
                 );
 
+                $progress = $this->calculateProgress(
+                    processed: $processed,
+                    total: $export->total_rows ?? 0,
+                );
+
+                if (
+                    $progress >=
+                    $lastDispatchedProgress
+                    + $eventInterval
+                ) {
+                    ExportProgressUpdated::dispatch(
+                        exportId: $export->getKey(),
+                        processedRows: $processed,
+                        totalRows: $export->total_rows ?? 0,
+                        progress: $progress,
+                    );
+
+                    $lastDispatchedProgress =
+                        $progress;
+                }
+
                 return true;
             }
+        );
+    }
+
+    protected function calculateProgress(
+        int $processed,
+        int $total
+    ): int {
+        if ($total <= 0) {
+            return 0;
+        }
+
+        return min(
+            100,
+            (int) floor(
+                ($processed / $total) * 100
+            )
         );
     }
 

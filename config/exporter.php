@@ -69,4 +69,23 @@ return [
         7
     ),
 
+    'progress' => [
+
+        /*
+    |--------------------------------------------------------------------------
+    | Event Interval
+    |--------------------------------------------------------------------------
+    |
+    | Progress events are emitted when the percentage advances by at least
+    | this amount.
+    |
+    */
+
+        'event_interval' => (int) env(
+            'EXPORTER_PROGRESS_EVENT_INTERVAL',
+            5
+        ),
+
+    ],
+
 ];

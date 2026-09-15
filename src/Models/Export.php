@@ -4,10 +4,15 @@ namespace Akika\LaravelExporter\Models;
 
 use Akika\LaravelExporter\Enums\ExportFormat;
 use Akika\LaravelExporter\Enums\ExportStatus;
+use Akika\LaravelExporter\Events\ExportCancelled;
+use Akika\LaravelExporter\Events\ExportCompleted;
+use Akika\LaravelExporter\Events\ExportFailed;
+use Akika\LaravelExporter\Events\ExportStarted;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
+
 
 class Export extends Model
 {
@@ -77,15 +82,23 @@ class Export extends Model
     public function markAsProcessing(
         ?int $totalRows = null
     ): static {
+        $wasPending = $this->isPending();
+
         $this->forceFill([
             'status' => ExportStatus::PROCESSING,
             'total_rows' => $totalRows,
             'processed_rows' => 0,
-            'started_at' => now(),
+            'started_at' => $this->started_at ?? now(),
             'completed_at' => null,
             'failed_at' => null,
             'error_message' => null,
         ])->save();
+
+        if ($wasPending) {
+            ExportStarted::dispatch(
+                $this->getKey()
+            );
+        }
 
         return $this;
     }
@@ -94,15 +107,25 @@ class Export extends Model
         string $path,
         array $meta = []
     ): static {
+        if ($this->isCompleted()) {
+            return $this;
+        }
+
         $this->forceFill([
             'status' => ExportStatus::COMPLETED,
             'path' => $path,
-            'processed_rows' => $this->total_rows ?? $this->processed_rows,
+            'processed_rows' =>
+            $this->total_rows
+                ?? $this->processed_rows,
             'meta' => $meta,
             'completed_at' => now(),
             'failed_at' => null,
             'error_message' => null,
         ])->save();
+
+        ExportCompleted::dispatch(
+            $this->getKey()
+        );
 
         return $this;
     }
@@ -110,11 +133,26 @@ class Export extends Model
     public function markAsFailed(
         ?Throwable $exception = null
     ): static {
+        if ($this->isFailed()) {
+            return $this;
+        }
+
+        if ($this->isCancelled()) {
+            return $this;
+        }
+
+        $message = $exception?->getMessage();
+
         $this->forceFill([
             'status' => ExportStatus::FAILED,
             'failed_at' => now(),
-            'error_message' => $exception?->getMessage(),
+            'error_message' => $message,
         ])->save();
+
+        ExportFailed::dispatch(
+            $this->getKey(),
+            $message
+        );
 
         return $this;
     }
@@ -128,6 +166,10 @@ class Export extends Model
         $this->forceFill([
             'status' => ExportStatus::CANCELLED,
         ])->save();
+
+        ExportCancelled::dispatch(
+            $this->getKey()
+        );
 
         return true;
     }
