@@ -33,10 +33,7 @@
         "laravel": {
             "providers": [
                 "Akika\\LaravelExporter\\ExporterServiceProvider"
-            ],
-            "aliases": {
-                "Exporter": "Akika\\LaravelExporter\\Facades\\Exporter"
-            }
+            ]
         }
     },
     "minimum-stability": "stable",

@@ -25,8 +25,26 @@ return [
     */
 
     'queue' => [
-        'connection' => env('EXPORTER_QUEUE_CONNECTION'),
-        'name' => env('EXPORTER_QUEUE', 'exports'),
+
+        'connection' => env(
+            'EXPORTER_QUEUE_CONNECTION'
+        ),
+
+        'name' => env(
+            'EXPORTER_QUEUE',
+            'exports'
+        ),
+
+        'tries' => (int) env(
+            'EXPORTER_QUEUE_TRIES',
+            3
+        ),
+
+        'timeout' => (int) env(
+            'EXPORTER_QUEUE_TIMEOUT',
+            3600
+        ),
+
     ],
 
     /*
