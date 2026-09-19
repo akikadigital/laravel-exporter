@@ -21,4 +21,6 @@ interface Exportable
      * Transform a database record into an export row.
      */
     public function map(mixed $row): array;
+
+    public function validateOptions(): void;
 }

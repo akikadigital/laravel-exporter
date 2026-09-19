@@ -2,27 +2,28 @@
 
 namespace Akika\LaravelExporter\Services;
 
-use Akika\LaravelExporter\Contracts\Exportable;
+use Akika\LaravelExporter\Exceptions\InvalidExporterException;
+use Akika\LaravelExporter\Exporter;
 use Akika\LaravelExporter\PendingExport;
-use InvalidArgumentException;
 
 class ExportManager
 {
     public function make(string $exporter): PendingExport
     {
-        if (! class_exists($exporter)) {
-            throw new InvalidArgumentException(
-                "Exporter class [{$exporter}] does not exist."
+        if (
+            ! class_exists($exporter)
+            || ! is_subclass_of(
+                $exporter,
+                Exporter::class
+            )
+        ) {
+            throw InvalidExporterException::for(
+                $exporter
             );
         }
 
-        if (! is_subclass_of($exporter, Exportable::class)) {
-            throw new InvalidArgumentException(
-                "Exporter class [{$exporter}] must implement "
-                    . Exportable::class . '.'
-            );
-        }
-
-        return new PendingExport($exporter);
+        return new PendingExport(
+            exporter: $exporter
+        );
     }
 }

@@ -45,4 +45,28 @@ abstract class Exporter implements Exportable
             );
         }
     }
+
+    public function validateOptions(): void
+    {
+        validator(
+            $this->options(),
+            [
+                'store_id' => [
+                    'nullable',
+                    'integer',
+                ],
+
+                'from' => [
+                    'nullable',
+                    'date',
+                ],
+
+                'to' => [
+                    'nullable',
+                    'date',
+                    'after_or_equal:from',
+                ],
+            ]
+        )->validate();
+    }
 }

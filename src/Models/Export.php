@@ -8,10 +8,13 @@ use Akika\LaravelExporter\Events\ExportCancelled;
 use Akika\LaravelExporter\Events\ExportCompleted;
 use Akika\LaravelExporter\Events\ExportFailed;
 use Akika\LaravelExporter\Events\ExportStarted;
+use Akika\LaravelExporter\Exceptions\ExportNotDownloadableException;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Throwable;
@@ -102,6 +105,34 @@ class Export extends Model
             ->exists($this->path);
     }
 
+    public function isActive(): bool
+    {
+        return in_array(
+            $this->status,
+            [
+                ExportStatus::PENDING,
+                ExportStatus::PROCESSING,
+            ],
+            true
+        );
+    }
+
+    public function requireDownloadUrl(
+        ?int $expiresAfterMinutes = null
+    ): string {
+        $url = $this->downloadUrl(
+            $expiresAfterMinutes
+        );
+
+        if ($url === null) {
+            throw ExportNotDownloadableException::for(
+                $this->getKey()
+            );
+        }
+
+        return $url;
+    }
+
     public function downloadUrl(
         ?int $expiresAfterMinutes = null
     ): ?string {
@@ -177,14 +208,6 @@ class Export extends Model
 
         $completedAt = now();
 
-        $expiresAfterDays = max(
-            1,
-            (int) config(
-                'exporter.expires_after_days',
-                7
-            )
-        );
-
         $this->forceFill([
             'status' => ExportStatus::COMPLETED,
             'path' => $path,
@@ -193,9 +216,7 @@ class Export extends Model
                 ?? $this->processed_rows,
             'meta' => $meta,
             'completed_at' => $completedAt,
-            'expires_at' => $completedAt
-                ->copy()
-                ->addDays($expiresAfterDays),
+            'expires_at' => $this->expirationDate(),
             'failed_at' => null,
             'error_message' => null,
         ])->save();
@@ -251,8 +272,6 @@ class Export extends Model
             return false;
         }
 
-        $cancelledAt = now();
-
         $this->forceFill([
             'status' => ExportStatus::CANCELLED,
             'expires_at' => $this->expirationDate(),
@@ -269,7 +288,7 @@ class Export extends Model
         return true;
     }
 
-    protected function expirationDate()
+    protected function expirationDate(): Carbon
     {
         return now()->addDays(
             max(
@@ -341,11 +360,89 @@ class Export extends Model
     ): Builder {
         return $query->whereIn(
             'status',
-            [
-                ExportStatus::PENDING->value,
-                ExportStatus::PROCESSING->value,
-            ]
+            ExportStatus::active()
         );
+    }
+
+    public function scopePending(
+        Builder $query
+    ): Builder {
+        return $query->where(
+            'status',
+            ExportStatus::PENDING->value
+        );
+    }
+
+    public function scopeProcessing(
+        Builder $query
+    ): Builder {
+        return $query->where(
+            'status',
+            ExportStatus::PROCESSING->value
+        );
+    }
+
+    public function scopeCompleted(
+        Builder $query
+    ): Builder {
+        return $query->where(
+            'status',
+            ExportStatus::COMPLETED->value
+        );
+    }
+
+    public function scopeFailed(
+        Builder $query
+    ): Builder {
+        return $query->where(
+            'status',
+            ExportStatus::FAILED->value
+        );
+    }
+
+    public function scopeCancelled(
+        Builder $query
+    ): Builder {
+        return $query->where(
+            'status',
+            ExportStatus::CANCELLED->value
+        );
+    }
+
+    public function scopeFinished(
+        Builder $query
+    ): Builder {
+        return $query->whereIn(
+            'status',
+            ExportStatus::finished()
+        );
+    }
+
+    public function scopeExpired(
+        Builder $query
+    ): Builder {
+        return $query
+            ->whereNotNull('expires_at')
+            ->where(
+                'expires_at',
+                '<=',
+                now()
+            );
+    }
+
+    public function scopeForOwner(
+        Builder $query,
+        Model $owner
+    ): Builder {
+        return $query
+            ->where(
+                'owner_type',
+                $owner->getMorphClass()
+            )
+            ->where(
+                'owner_id',
+                $owner->getKey()
+            );
     }
 
     public static function findActiveByFingerprint(
@@ -364,5 +461,50 @@ class Export extends Model
     public function releaseUniqueLock(): void
     {
         $this->lock()->delete();
+    }
+
+    protected function progress(): Attribute
+    {
+        return Attribute::get(
+            function (): int {
+                if ($this->isCompleted()) {
+                    return 100;
+                }
+
+                if (
+                    ! $this->total_rows
+                    || $this->total_rows <= 0
+                ) {
+                    return 0;
+                }
+
+                return min(
+                    100,
+                    (int) floor(
+                        (
+                            $this->processed_rows
+                            / $this->total_rows
+                        ) * 100
+                    )
+                );
+            }
+        );
+    }
+
+    protected function remainingRows(): Attribute
+    {
+        return Attribute::get(
+            function (): ?int {
+                if ($this->total_rows === null) {
+                    return null;
+                }
+
+                return max(
+                    0,
+                    $this->total_rows
+                        - $this->processed_rows
+                );
+            }
+        );
     }
 }

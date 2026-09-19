@@ -4,6 +4,7 @@ namespace Akika\LaravelExporter;
 
 use Akika\LaravelExporter\Enums\ExportFormat;
 use Akika\LaravelExporter\Enums\ExportStatus;
+use Akika\LaravelExporter\Exceptions\ExportConfigurationException;
 use Akika\LaravelExporter\Jobs\ProcessExport;
 use Akika\LaravelExporter\Models\Export;
 use Akika\LaravelExporter\Models\ExportLock;
@@ -12,8 +13,10 @@ use Akika\LaravelExporter\Support\ExportFingerprint;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Throwable;
 
 class PendingExport
 {
@@ -79,6 +82,7 @@ class PendingExport
 
     public function queue(): Export
     {
+        $this->validateConfiguration();
         $this->validateOptions();
 
         $fingerprint =
@@ -268,14 +272,40 @@ class PendingExport
 
     protected function buildFilename(
         string $name,
-        string $uuid,
+        string $uuid
     ): string {
+        $slug = Str::slug($name);
+
+        if ($slug === '') {
+            $slug = 'export';
+        }
+
         return sprintf(
             '%s-%s.%s',
-            Str::slug($name),
-            $uuid,
-            $this->format->extension(),
+            $slug,
+            substr($uuid, -8),
+            $this->format->extension()
         );
+    }
+
+    protected function validateConfiguration(): void
+    {
+        $disk = config('exporter.disk');
+
+        if (! is_string($disk) || $disk === '') {
+            throw new ExportConfigurationException(
+                'The exporter storage disk is not configured.'
+            );
+        }
+
+        try {
+            Storage::disk($disk);
+        } catch (Throwable $exception) {
+            throw new ExportConfigurationException(
+                "The exporter storage disk [{$disk}] is not configured.",
+                previous: $exception
+            );
+        }
     }
 
     protected function validateOptions(): void
@@ -305,6 +335,30 @@ class PendingExport
             format: $this->format,
             options: $this->options,
         );
+    }
+
+    public function option(
+        string $key,
+        mixed $default = null
+    ): mixed {
+        return data_get(
+            $this->options,
+            $key,
+            $default
+        );
+    }
+
+    public function options(): array
+    {
+        return $this->options;
+    }
+
+    public function setOptions(
+        array $options
+    ): static {
+        $this->options = $options;
+
+        return $this;
     }
     
 }

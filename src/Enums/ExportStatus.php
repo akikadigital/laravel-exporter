@@ -10,37 +10,45 @@ enum ExportStatus: string
     case FAILED = 'failed';
     case CANCELLED = 'cancelled';
 
-    public function isPending(): bool
+    public function isActive(): bool
     {
-        return $this === self::PENDING;
-    }
-
-    public function isProcessing(): bool
-    {
-        return $this === self::PROCESSING;
-    }
-
-    public function isCompleted(): bool
-    {
-        return $this === self::COMPLETED;
-    }
-
-    public function isFailed(): bool
-    {
-        return $this === self::FAILED;
-    }
-
-    public function isCancelled(): bool
-    {
-        return $this === self::CANCELLED;
+        return in_array(
+            $this,
+            [
+                self::PENDING,
+                self::PROCESSING,
+            ],
+            true
+        );
     }
 
     public function isFinished(): bool
     {
-        return in_array($this, [
-            self::COMPLETED,
-            self::FAILED,
-            self::CANCELLED,
-        ], true);
+        return in_array(
+            $this,
+            [
+                self::COMPLETED,
+                self::FAILED,
+                self::CANCELLED,
+            ],
+            true
+        );
+    }
+
+    public static function active(): array
+    {
+        return [
+            self::PENDING->value,
+            self::PROCESSING->value,
+        ];
+    }
+
+    public static function finished(): array
+    {
+        return [
+            self::COMPLETED->value,
+            self::FAILED->value,
+            self::CANCELLED->value,
+        ];
     }
 }

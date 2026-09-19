@@ -30,11 +30,7 @@ class PruneExportsCommand extends Command
         Export::query()
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', now())
-            ->whereIn('status', [
-                ExportStatus::COMPLETED->value,
-                ExportStatus::FAILED->value,
-                ExportStatus::CANCELLED->value,
-            ])
+            ->whereIn('status', ExportStatus::finished())
             ->orderBy('id')
             ->chunkById(
                 100,
@@ -88,11 +84,7 @@ class PruneExportsCommand extends Command
             ->whereHas(
                 'export',
                 function ($query) {
-                    $query->whereIn('status', [
-                        ExportStatus::COMPLETED->value,
-                        ExportStatus::FAILED->value,
-                        ExportStatus::CANCELLED->value,
-                    ]);
+                    $query->whereIn('status', ExportStatus::finished());
                 }
             )
             ->delete();
