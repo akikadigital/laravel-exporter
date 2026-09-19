@@ -29,7 +29,7 @@ Instead of generating a large CSV directly inside a controller or Livewire reque
 ## Requirements
 
 * PHP 8.2+
-* Laravel 12 or 13
+* Laravel 11, 12 or 13
 * A configured Laravel queue
 
 ## Installation
