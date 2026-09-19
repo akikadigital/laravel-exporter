@@ -1,16 +1,17 @@
 {
     "name": "akika/laravel-exporter",
-    "description": "A Laravel-native asynchronous export workflow for large datasets.",
-    "type": "library",
-    "license": "MIT",
+    "description": "Asynchronous, queue-based data exports for Laravel applications.",
     "keywords": [
         "laravel",
         "export",
         "csv",
         "queue",
         "async",
-        "large-data"
+        "large-data",
+        "data-export"
     ],
+    "type": "library",
+    "license": "MIT",
     "authors": [
         {
             "name": "Akika Digital"
@@ -18,12 +19,12 @@
     ],
     "require": {
         "php": "^8.2",
+        "illuminate/bus": "^11.0|^12.0|^13.0",
         "illuminate/contracts": "^11.0|^12.0|^13.0",
         "illuminate/database": "^11.0|^12.0|^13.0",
         "illuminate/filesystem": "^11.0|^12.0|^13.0",
         "illuminate/queue": "^11.0|^12.0|^13.0",
-        "illuminate/support": "^11.0|^12.0|^13.0",
-        "illuminate/bus": "^11.0|^12.0|^13.0"
+        "illuminate/support": "^11.0|^12.0|^13.0"
     },
     "require-dev": {
         "orchestra/testbench": "^10.0|^11.0",
@@ -43,12 +44,15 @@
         "laravel": {
             "providers": [
                 "Akika\\LaravelExporter\\ExporterServiceProvider"
-            ]
+            ],
+            "aliases": {
+                "Exporter": "Akika\\LaravelExporter\\Facades\\Exporter"
+            }
         }
     },
-    "minimum-stability": "stable",
-    "prefer-stable": true,
     "scripts": {
         "test": "phpunit"
-    }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }
