@@ -7,7 +7,7 @@ use Akika\LaravelExporter\Events\ExportProgressUpdated;
 use Akika\LaravelExporter\Models\Export;
 use Akika\LaravelExporter\Writers\CsvWriter;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Bus\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Storage;
 use DateTime;
@@ -271,11 +271,13 @@ class ProcessExport implements ShouldQueue
                     $lastDispatchedProgress
                     + $eventInterval
                 ) {
-                    ExportProgressUpdated::dispatch(
-                        exportId: $export->getKey(),
-                        processedRows: $processed,
-                        totalRows: $export->total_rows ?? 0,
-                        progress: $progress,
+                    event(
+                        new ExportProgressUpdated(
+                            exportId: $export->getKey(),
+                            processedRows: $processed,
+                            totalRows: $export->total_rows ?? 0,
+                            progress: $progress,
+                        )
                     );
 
                     $lastDispatchedProgress =

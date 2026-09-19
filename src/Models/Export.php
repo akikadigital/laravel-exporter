@@ -157,8 +157,10 @@ class Export extends Model
         ])->save();
 
         if ($wasPending) {
-            ExportStarted::dispatch(
-                $this->getKey()
+            event(
+                new ExportStarted(
+                    $this->getKey()
+                )
             );
         }
 
@@ -200,8 +202,10 @@ class Export extends Model
 
         $this->releaseUniqueLock();
 
-        ExportCompleted::dispatch(
-            $this->getKey()
+        event(
+            new ExportCompleted(
+                $this->getKey()
+            )
         );
 
         return $this;
@@ -231,9 +235,11 @@ class Export extends Model
 
         $this->releaseUniqueLock();
 
-        ExportFailed::dispatch(
-            $this->getKey(),
-            $message
+        event(
+            new ExportFailed(
+                $this->getKey(),
+                $message
+            )
         );
 
         return $this;
@@ -254,8 +260,10 @@ class Export extends Model
 
         $this->releaseUniqueLock();
 
-        ExportCancelled::dispatch(
-            $this->getKey()
+        event(
+            new ExportCancelled(
+                $this->getKey(),
+            )
         );
 
         return true;
