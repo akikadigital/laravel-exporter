@@ -3,7 +3,7 @@
         'name' => 'akika/laravel-exporter',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '358e5248466c07aa2ff7f31ae042a919b317cff2',
+        'reference' => 'dd3045aebfd881bf3e283449ab7de662c77e5ceb',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'akika/laravel-exporter' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '358e5248466c07aa2ff7f31ae042a919b317cff2',
+            'reference' => 'dd3045aebfd881bf3e283449ab7de662c77e5ceb',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
