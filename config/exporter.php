@@ -246,6 +246,50 @@ return [
     |
     */
 
+    /*
+|--------------------------------------------------------------------------
+| Broadcasting
+|--------------------------------------------------------------------------
+|
+| Laravel Exporter can optionally broadcast export lifecycle events to
+| private owner-specific channels. This allows frontend applications to
+| receive real-time progress, completion, failure, and cancellation updates.
+|
+| Broadcasting is disabled by default. The consuming application is
+| responsible for configuring Laravel broadcasting and authorizing the
+| generated private channels.
+|
+*/
+
+    'broadcasting' => [
+
+        /*
+    | Enable Broadcasting
+    */
+
+        'enabled' => (bool) env(
+            'EXPORTER_BROADCASTING_ENABLED',
+            false
+        ),
+
+        /*
+    | Channel Prefix
+    |
+    | Owner-specific channels are generated using this prefix.
+    |
+    | Example:
+    |
+    | exports.App.Models.User.15
+    |
+    */
+
+        'channel_prefix' => env(
+            'EXPORTER_BROADCAST_CHANNEL_PREFIX',
+            'exports'
+        ),
+
+    ],
+
     'prune' => [
 
         /*
