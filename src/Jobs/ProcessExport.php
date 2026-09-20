@@ -176,12 +176,8 @@ class ProcessExport implements ShouldQueue
     protected function resolveExporter(
         Export $export
     ): Exportable {
-        $exporter = app()->makeWith(
-            $export->exporter,
-            [
-                'options' =>
-                $export->options ?? [],
-            ]
+        $exporter = app()->make(
+            $export->exporter
         );
 
         if (! $exporter instanceof Exportable) {
@@ -191,6 +187,12 @@ class ProcessExport implements ShouldQueue
                     . Exportable::class . '.'
             );
         }
+
+        $exporter->setOptions(
+            $export->options ?? []
+        );
+
+        $exporter->validateOptions();
 
         return $exporter;
     }
