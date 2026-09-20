@@ -3,16 +3,7 @@
 namespace Akika\LaravelExporter;
 
 use Akika\LaravelExporter\Console\Commands\PruneExportsCommand;
-use Akika\LaravelExporter\Events\ExportCancelled;
-use Akika\LaravelExporter\Events\ExportCompleted;
-use Akika\LaravelExporter\Events\ExportFailed;
-use Akika\LaravelExporter\Events\ExportProgressUpdated;
-use Akika\LaravelExporter\Listeners\BroadcastExportCancelled;
-use Akika\LaravelExporter\Listeners\BroadcastExportCompleted;
-use Akika\LaravelExporter\Listeners\BroadcastExportFailed;
-use Akika\LaravelExporter\Listeners\BroadcastExportProgress;
 use Akika\LaravelExporter\Services\ExportManager;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class ExporterServiceProvider extends ServiceProvider
@@ -65,25 +56,5 @@ class ExporterServiceProvider extends ServiceProvider
                 PruneExportsCommand::class,
             ]);
         }
-
-        Event::listen(
-            ExportProgressUpdated::class,
-            BroadcastExportProgress::class
-        );
-
-        Event::listen(
-            ExportCompleted::class,
-            BroadcastExportCompleted::class
-        );
-
-        Event::listen(
-            ExportFailed::class,
-            BroadcastExportFailed::class
-        );
-
-        Event::listen(
-            ExportCancelled::class,
-            BroadcastExportCancelled::class
-        );
     }
 }

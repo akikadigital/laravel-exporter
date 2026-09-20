@@ -8,29 +8,29 @@ Instead of generating a large CSV directly inside a controller or Livewire reque
 
 ## Features
 
-* Asynchronous queue-based exports
-* Large dataset processing using chunking
-* CSV exports
-* Export progress tracking
-* Export lifecycle management
-* User/owner-associated exports
-* Export cancellation
-* Expiring exports
-* Automatic pruning
-* Duplicate active-export prevention
-* Export lifecycle events
-* Laravel filesystem-backed storage
-* Signed download URLs
-* Configurable queue connection and queue
-* Configurable job attempts and timeout
-* Configurable export storage and expiration
-* Framework-agnostic core with no Livewire dependency
+- Asynchronous queue-based exports
+- Large dataset processing using chunking
+- CSV exports
+- Export progress tracking
+- Export lifecycle management
+- User/owner-associated exports
+- Export cancellation
+- Expiring exports
+- Automatic pruning
+- Duplicate active-export prevention
+- Export lifecycle events
+- Laravel filesystem-backed storage
+- Signed download URLs
+- Configurable queue connection and queue
+- Configurable job attempts and timeout
+- Configurable export storage and expiration
+- Framework-agnostic core with no Livewire dependency
 
 ## Requirements
 
-* PHP 8.2+
-* Laravel 11, 12 or 13
-* A configured Laravel queue
+- PHP 8.2+
+- Laravel 11, 12 or 13
+- A configured Laravel queue
 
 ## Installation
 
@@ -75,9 +75,6 @@ EXPORTER_PROGRESS_EVENT_INTERVAL=5
 EXPORTER_DOWNLOAD_URL_EXPIRES_AFTER=15
 EXPORTER_ROUTE_PREFIX=exports
 
-EXPORTER_BROADCASTING_ENABLED=false
-EXPORTER_BROADCAST_CHANNEL_PREFIX=exports
-
 EXPORTER_PRUNE_DELETE_RECORDS=true
 ```
 
@@ -107,16 +104,16 @@ config/exporter.php
 
 You can configure:
 
-* Storage disk and export path
-* Queue connection and queue name
-* Queue attempts and timeout
-* Database chunk size
-* Export lifetime
-* Progress event interval
-* Signed download URL lifetime
-* Download route prefix
-* Route middleware
-* Expired export pruning behavior
+- Storage disk and export path
+- Queue connection and queue name
+- Queue attempts and timeout
+- Database chunk size
+- Export lifetime
+- Progress event interval
+- Signed download URL lifetime
+- Download route prefix
+- Route middleware
+- Expired export pruning behavior
 
 ### Storage
 
@@ -471,6 +468,8 @@ EXPORTER_DOWNLOAD_URL_EXPIRES_AFTER=15
 
 The default download route is protected by the configured route middleware.
 
+Generate download URLs when they are needed rather than storing them permanently, since signed URLs are intentionally short-lived.
+
 ## Export Lifecycle
 
 A successful export normally follows this lifecycle:
@@ -516,7 +515,7 @@ Terminal exports receive an expiration date and may later be pruned.
 
 ## Events
 
-Laravel Exporter dispatches events throughout the export lifecycle.
+Laravel Exporter dispatches Laravel events throughout the export lifecycle.
 
 Available lifecycle events include:
 
@@ -530,17 +529,19 @@ ExportCancelled
 
 Applications may listen for these events to implement:
 
-* Browser notifications
-* Broadcasting
-* Email notifications
-* Audit logging
-* Application-specific workflows
-* UI progress updates
+- Browser notifications
+- Broadcasting
+- Email notifications
+- Database notifications
+- Audit logging
+- Application-specific workflows
+- UI progress updates
 
 For example:
 
 ```php
 use Akika\LaravelExporter\Events\ExportCompleted;
+use Illuminate\Support\Facades\Event;
 
 Event::listen(
     ExportCompleted::class,
@@ -550,7 +551,13 @@ Event::listen(
 );
 ```
 
-The core package does not require Livewire or any particular frontend framework.
+The package deliberately stops at Laravel lifecycle events.
+
+The core package does not require Livewire, Laravel Echo, Reverb, WebSockets, or any particular frontend framework.
+
+Lifecycle events are intentionally framework-agnostic. Applications may choose how those events are consumed, including polling, database notifications, broadcasting, email, or custom application workflows.
+
+Laravel Exporter does not configure broadcasting or frontend notifications on behalf of the consuming application.
 
 ## Progress Events
 
@@ -572,6 +579,8 @@ With the default value, progress events are emitted approximately when the expor
 ```
 
 This prevents an event from being emitted for every exported row when processing large datasets.
+
+Applications are not required to consume progress events. Export progress can also be retrieved directly from the `Export` model, making approaches such as Livewire or AJAX polling possible without additional broadcasting infrastructure.
 
 ## Pruning Expired Exports
 
@@ -685,7 +694,8 @@ ProcessExport job
         ├── process records in chunks
         ├── map rows
         ├── write CSV
-        └── update progress
+        ├── update progress
+        └── dispatch lifecycle events
         │
         ▼
     COMPLETED
@@ -718,6 +728,25 @@ PENDING / PROCESSING
     CANCELLED
 ```
 
+## Application Integration
+
+Laravel Exporter is responsible for generating and tracking exports. User-interface behavior belongs to the consuming application.
+
+For example, an application may periodically query active exports:
+
+```php
+use Akika\LaravelExporter\Models\Export;
+
+$exports = Export::query()
+    ->forOwner(auth()->user())
+    ->active()
+    ->get();
+```
+
+A Livewire application may use conditional polling while exports are active. Applications requiring real-time push notifications may listen to the package lifecycle events and implement Laravel broadcasting separately.
+
+This separation keeps the package usable by traditional Laravel applications, Livewire applications, API backends, Vue or React frontends, and other Laravel-based architectures without requiring frontend-specific dependencies.
+
 ## Security
 
 Generated exports may contain sensitive application data.
@@ -741,12 +770,12 @@ Avoid using a publicly accessible filesystem disk for sensitive exports unless p
 
 For sensitive exports:
 
-* Use an appropriate private filesystem disk.
-* Keep authentication and authorization checks in place.
-* Use short-lived signed download URLs.
-* Configure an appropriate export expiration period.
-* Schedule `exporter:prune` regularly.
-* Avoid exposing another user's export records or download URLs.
+- Use an appropriate private filesystem disk.
+- Keep authentication and authorization checks in place.
+- Use short-lived signed download URLs.
+- Configure an appropriate export expiration period.
+- Schedule `exporter:prune` regularly.
+- Avoid exposing another user's export records or download URLs.
 
 ## Error Handling
 
@@ -793,22 +822,22 @@ vendor/bin/phpunit
 
 The test suite covers core functionality including:
 
-* Export creation
-* CSV generation
-* Export options
-* Export lifecycle
-* Progress calculation
-* Lifecycle events
-* Cancellation
-* Fingerprinting
-* Duplicate export prevention
-* Lock release
-* Owner scopes
-* Status scopes
-* Expiration
-* Pruning
-* Configuration validation
-* Invalid exporter handling
+- Export creation
+- CSV generation
+- Export options
+- Export lifecycle
+- Progress calculation
+- Lifecycle events
+- Cancellation
+- Fingerprinting
+- Duplicate export prevention
+- Lock release
+- Owner scopes
+- Status scopes
+- Expiration
+- Pruning
+- Configuration validation
+- Invalid exporter handling
 
 ## Development
 
