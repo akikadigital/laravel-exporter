@@ -2,24 +2,22 @@
 
 namespace Akika\LaravelExporter\Tests\Fixtures\Exports;
 
-use Akika\LaravelExporter\Exporter;
+use Akika\LaravelExporter\Concerns\InteractsWithExportOptions;
+use Akika\LaravelExporter\Contracts\Exportable;
 use Akika\LaravelExporter\Tests\Fixtures\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
-class UsersExport extends Exporter
+class UsersExport implements Exportable
 {
+    use InteractsWithExportOptions;
+
     public function query(): Builder
     {
         return User::query()
             ->when(
                 $this->option('email'),
-                fn(
-                    Builder $query,
-                    string $email
-                ) => $query->where(
-                    'email',
-                    $email
-                )
+                fn(Builder $query, string $email) =>
+                $query->where('email', $email)
             )
             ->orderBy('id');
     }
@@ -33,13 +31,17 @@ class UsersExport extends Exporter
         ];
     }
 
-    public function map(
-        mixed $user
-    ): array {
+    public function map(mixed $row): array
+    {
         return [
-            $user->id,
-            $user->name,
-            $user->email,
+            $row->id,
+            $row->name,
+            $row->email,
         ];
+    }
+
+    public function validateOptions(): void
+    {
+        //
     }
 }
