@@ -8,6 +8,7 @@ use Akika\LaravelExporter\Exceptions\ExportConfigurationException;
 use Akika\LaravelExporter\Exceptions\InvalidExporterException;
 use Akika\LaravelExporter\Facades\Exporter;
 use Akika\LaravelExporter\Models\Export;
+use Akika\LaravelExporter\PendingExport;
 use Akika\LaravelExporter\Tests\Fixtures\Exports\UsersExport;
 use Akika\LaravelExporter\Tests\Fixtures\Models\User;
 use Akika\LaravelExporter\Tests\TestCase;
@@ -87,5 +88,17 @@ class ExportLifecycleTest extends TestCase
         Exporter::make(
             UsersExport::class
         )->queue();
+    }
+
+    public function test_it_accepts_an_exportable_class(): void
+    {
+        $pendingExport = Exporter::make(
+            UsersExport::class
+        );
+
+        $this->assertInstanceOf(
+            PendingExport::class,
+            $pendingExport
+        );
     }
 }

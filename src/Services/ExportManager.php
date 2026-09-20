@@ -2,8 +2,8 @@
 
 namespace Akika\LaravelExporter\Services;
 
+use Akika\LaravelExporter\Contracts\Exportable;
 use Akika\LaravelExporter\Exceptions\InvalidExporterException;
-use Akika\LaravelExporter\Exporter;
 use Akika\LaravelExporter\PendingExport;
 
 class ExportManager
@@ -12,10 +12,7 @@ class ExportManager
     {
         if (
             ! class_exists($exporter)
-            || ! is_subclass_of(
-                $exporter,
-                Exporter::class
-            )
+            || ! is_subclass_of($exporter, Exportable::class)
         ) {
             throw InvalidExporterException::for(
                 $exporter
@@ -23,7 +20,7 @@ class ExportManager
         }
 
         return new PendingExport(
-            exporter: $exporter
+            $exporter
         );
     }
 }

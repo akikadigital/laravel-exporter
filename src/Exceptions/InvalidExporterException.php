@@ -2,12 +2,19 @@
 
 namespace Akika\LaravelExporter\Exceptions;
 
+use Akika\LaravelExporter\Contracts\Exportable;
+
 class InvalidExporterException extends ExporterException
 {
-    public static function for(string $exporter): self
-    {
+    public static function for(
+        string $exporter
+    ): self {
         return new self(
-            "Exporter [{$exporter}] is invalid or does not extend the required exporter class."
+            sprintf(
+                'Exporter [%s] must exist and implement [%s].',
+                $exporter,
+                Exportable::class
+            )
         );
     }
 }
